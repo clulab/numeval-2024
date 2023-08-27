@@ -16,7 +16,7 @@ df['news'] = df['news'].apply(lambda x: re.sub(r'\([^)]*\)', '', x))
 df['masked headline'] = df['masked headline'].str.replace('____', '<mask> ')
 df['text'] = df[['news', 'masked headline']].apply(" ".join, axis=1)
 print(df['text'].head())
-df['ans']=df['ans'].str.replace(',','')
+#df['ans']=df['ans'].str.replace(',','')
 f.close()
 
 dataset = Dataset.from_pandas(df)
