@@ -47,7 +47,6 @@ def format_data(data, max_features, maxlen, shuffle=False):
         for i in range(1, len(line) - 1):
             X.append(line[:i + 1])
             Y.append(line[i + 1])
-    print(Y)
     # Pad X and convert Y to categorical (Y consisted of integers)
     X = tf.keras.utils.pad_sequences(X, maxlen=maxlen)
     Y = to_categorical(Y, num_classes=max_features)
@@ -57,14 +56,14 @@ def format_data(data, max_features, maxlen, shuffle=False):
 max_features, max_len = 3500, 20
 X, Y, tokenizer = format_data(df, max_features, max_len)
 
-epochs = 100
+epochs = 50
 
 model = Sequential()
 
 # Embedding and GRU
 model.add(Embedding(max_features, 300))
 model.add(Dropout(0.2))
-model.add(Bidirectional(LSTM(30)))
+model.add(Bidirectional(LSTM(128)))
 
 # Output layer
 model.add(Dense(max_features, activation='softmax'))
