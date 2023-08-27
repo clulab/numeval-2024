@@ -17,6 +17,9 @@ from keras.utils import pad_sequences
 
 f = open('DryRun_Headline_Generation.json')
 df = pd.read_json(f)
+print(df.head())
+
+f.close()
 
 df['news'] = df['news'].apply(lambda x: re.sub(r'\([^)]*\)', '', x))
 df['text'] = df[['news', 'headline']].apply(" ".join, axis=1)
@@ -25,6 +28,7 @@ print(df['text'].head())
 START = '÷'
 END = '■'
 
+print("DF LEN", len(df['text']))
 
 def format_data(data, max_features, maxlen, shuffle=False):
 
@@ -32,7 +36,6 @@ def format_data(data, max_features, maxlen, shuffle=False):
     data['headline'] = START + ' ' + data['text'].str.lower() + ' ' + END
 
     text = data['headline']
-
     # Tokenize text
     filters = "!\"#$%&()*+,-./;<=>?@[\\]^_`{|}~\t\n"
     tokenizer = Tokenizer(num_words=max_features, filters=filters)
@@ -70,3 +73,61 @@ model.add(Dense(max_features, activation='softmax'))
 
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 model.fit(X, Y, epochs=epochs, batch_size=128, verbose=1)
+
+idx_to_words = {value: key for key, value in tokenizer.word_index.items()}
+
+
+def sample(preds, temp=1.0):
+    preds = np.asarray(preds).astype('float64')
+    preds = np.log(preds) / temp
+    preds = np.exp(preds) / np.sum(np.exp(preds))
+    probs = np.random.multinomial(1, preds, 1)
+    return np.argmax(probs)
+
+def process_input(text):
+    tokenized_input = tokenizer.texts_to_sequences([text])[0]
+    return pad_sequences([tokenized_input], maxlen=max_len - 1)
+
+
+def generate_text(input_text, model, n=7, temp=1.0):
+    if type(input_text) is str:
+        sent = input_text
+    else:
+        sent = ' '.join(input_text)
+
+    tokenized_input = process_input(input_text)
+
+    while True:
+        preds = model.predict(tokenized_input, verbose=0)[0]
+        pred_idx = sample(preds, temp=temp)
+        pred_word = idx_to_words[pred_idx]
+
+        if pred_word == END:
+            return sent
+
+        sent += ' ' + pred_word
+        #         print(sent)
+        #         tokenized_input = process_input(sent[-n:])
+        tokenized_input = process_input(sent)
+
+
+#text = generate_text(START, model, temp=0.01)
+#print(text[2:])
+
+def generate_text(seed_text, next_words, model, max_sequence_len):
+    for _ in range(next_words):
+        token_list = tokenizer.texts_to_sequences([seed_text])[0]
+        token_list = pad_sequences([token_list], maxlen=max_sequence_len-1,  padding='pre')
+        predicted = model.predict(token_list, verbose=0)
+        classes = np.argmax(predicted, axis=1)
+        output_word = ''
+        for word,index in tokenizer.word_index.items():
+            if index == classes:
+                output_word = word
+                seed_text += " "+output_word
+    return seed_text.title()
+
+print("Generated Headline")
+print(generate_text("Walmart", 7, model, max_len))
+print("Actual Headline")
+print(df['headline'][0])
