@@ -4,19 +4,17 @@ from transformers import AutoTokenizer
 import re
 from transformers import DataCollatorForLanguageModeling
 from transformers import AdamWeightDecay
-from transformers import TFAutoModelForMaskedLM
+from transformers import TFAutoModelForCausalLM
 from datasets import Dataset
 import math
 
 
-f = open('DryRun_Numerical_Reasoning.json')
+f = open('DryRun_Headline_Generation.json')
 df = pd.read_json(f)
-print(df.head())
+print(df.info())
 df['news'] = df['news'].apply(lambda x: re.sub(r'\([^)]*\)', '', x))
-df['masked headline'] = df['masked headline'].str.replace('____', '<mask> ')
-df['text'] = df[['news', 'masked headline']].apply(" ".join, axis=1)
+df['text'] = df[['news', 'headline']].apply(" ".join, axis=1)
 print(df['text'].head())
-#df['ans']=df['ans'].str.replace(',','')
 f.close()
 
 dataset = Dataset.from_pandas(df)
@@ -25,10 +23,12 @@ dataset = dataset.train_test_split(test_size=0.2)
 def preprocess_function(examples):
     return tokenizer([" ".join(x) for x in examples['text']])
 
-tokenizer = AutoTokenizer.from_pretrained("distilroberta-base")
+tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
+if tokenizer.pad_token is None:
+    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 tokenized = dataset.map(preprocess_function, batched=True, num_proc=4,
                         remove_columns=dataset["train"].column_names)
-
+print(tokenized["train"][1])
 block_size = 128
 
 def group_texts(examples):
@@ -47,13 +47,14 @@ def group_texts(examples):
     result["labels"] = result["input_ids"].copy()
     return result
 
-lm_dataset = tokenized.map(group_texts,  batched=True, num_proc=4)
+lm_dataset = tokenized.map(group_texts,  batched=True, batch_size=1000, num_proc=4)
 
-data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, return_tensors="tf")
+print('check', tokenizer.decode(lm_dataset["train"][1]["input_ids"]))
+data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False, return_tensors="tf")
 
 optimizer = AdamWeightDecay(learning_rate=2e-5, weight_decay_rate=0.01)
 
-model = TFAutoModelForMaskedLM.from_pretrained("distilroberta-base")
+model = TFAutoModelForCausalLM.from_pretrained("distilgpt2")
 
 tf_train_set = model.prepare_tf_dataset(
     lm_dataset["train"],
@@ -69,40 +70,21 @@ tf_test_set = model.prepare_tf_dataset(
     collate_fn=data_collator,
 )
 
-model.compile(optimizer=optimizer)  # No loss argument!
+model.compile(optimizer=optimizer, jit_compile=True)
 
 eval_loss = model.evaluate(tf_test_set)
 print(f"Pretrained LM Perplexity: {math.exp(eval_loss):.2f}")
 
-'''
-checkpoint_path = "training_1/cp.ckpt"
-cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
-                                                 save_weights_only=True,
-                                                 verbose=1)
-'''
-
-model.fit(x=tf_train_set, epochs=5)
+model.fit(x=tf_train_set, validation_data=tf_test_set, epochs=10)
 
 eval_loss = model.evaluate(tf_test_set)
 print(f"Finetuned Perplexity: {math.exp(eval_loss):.2f}")
 
-test_sentence = dataset['test']['masked headline'][0]
-inputs = tokenizer(test_sentence, return_tensors="tf")
-mask_token_index = tf.where(inputs["input_ids"] == tokenizer.mask_token_id)[0, 1]
-logits = model(**inputs).logits
-mask_token_logits = logits[0, mask_token_index, :]
-top_3_tokens = tf.math.top_k(mask_token_logits, 3).indices.numpy()
+prompt = dataset['test']['news'][0]
+inputs = tokenizer(prompt, return_tensors="tf").input_ids
+outputs = model.generate(input_ids=inputs, max_new_tokens=100, do_sample=True, top_k=50, top_p=0.95)
 
-for token in top_3_tokens:
-    print(test_sentence.replace(tokenizer.mask_token, tokenizer.decode([token])))
-print("Answer: ", dataset['test']['ans'][0])
+print(tokenizer.batch_decode(outputs, skip_special_tokens=True))
 
-'''
-mask_filler = pipeline(
-    "fill-mask", model="training_1/cp.ckpt")
-
-print(dataset['test']['masked headline'][0])
-print(mask_filler("The most common household pets are <mask> and dogs.", top_k=1))
-
-print(mask_filler(dataset['test']['masked headline'][0], top_k=3))
-'''
+print("News: ", dataset['test']['news'][0])
+print("Answer: ", dataset['test']['headline'][0])
