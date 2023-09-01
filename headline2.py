@@ -2,89 +2,101 @@ import pandas as pd
 import tensorflow as tf
 from transformers import AutoTokenizer
 import re
-from transformers import DataCollatorForLanguageModeling
 from transformers import AdamWeightDecay
 from transformers import TFAutoModelForCausalLM
 from datasets import Dataset
 import math
+from transformers import DataCollatorForSeq2Seq
+import evaluate
+import numpy as np
+from transformers import TFAutoModelForSeq2SeqLM
+from transformers.keras_callbacks import KerasMetricCallback
+
 
 
 f = open('DryRun_Headline_Generation.json')
 df = pd.read_json(f)
 print(df.info())
 df['news'] = df['news'].apply(lambda x: re.sub(r'\([^)]*\)', '', x))
-df['text'] = df[['news', 'headline']].apply(" ".join, axis=1)
-print(df['text'].head())
+#df['text'] = df[['news', 'headline']].apply(" ".join, axis=1)
+#print(df['text'].head())
 f.close()
 
 dataset = Dataset.from_pandas(df)
 dataset = dataset.train_test_split(test_size=0.2)
 
+tokenizer = AutoTokenizer.from_pretrained("t5-small")
+
+prefix = "summarize: "
+
+
 def preprocess_function(examples):
-    return tokenizer([" ".join(x) for x in examples['text']])
+    inputs = [prefix + doc for doc in examples["news"]]
+    model_inputs = tokenizer(inputs, max_length=2024, truncation=True)
 
-tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
-if tokenizer.pad_token is None:
-    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-tokenized = dataset.map(preprocess_function, batched=True, num_proc=4,
-                        remove_columns=dataset["train"].column_names)
+    labels = tokenizer(text_target=examples["headline"], max_length=128, truncation=True)
+
+    model_inputs["labels"] = labels["input_ids"]
+    return model_inputs
+
+tokenized = dataset.map(preprocess_function, batched=True)
 print(tokenized["train"][1])
-block_size = 128
 
-def group_texts(examples):
-    # Concatenate all texts.
-    concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
-    total_length = len(concatenated_examples[list(examples.keys())[0]])
-    # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
-    # customize this part to your needs.
-    if total_length >= block_size:
-        total_length = (total_length // block_size) * block_size
-    # Split by chunks of block_size.
-    result = {
-        k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
-        for k, t in concatenated_examples.items()
-    }
-    result["labels"] = result["input_ids"].copy()
-    return result
+data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model="t5-small", return_tensors="tf")
 
-lm_dataset = tokenized.map(group_texts,  batched=True, batch_size=1000, num_proc=4)
+rouge = evaluate.load("rouge")
 
-print('check', tokenizer.decode(lm_dataset["train"][1]["input_ids"]))
-data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False, return_tensors="tf")
+def compute_metrics(eval_pred):
+    predictions, labels = eval_pred
+    decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True)
+    labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
+    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+    result = rouge.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
+
+    prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in predictions]
+    result["gen_len"] = np.mean(prediction_lens)
+
+    return {k: round(v, 4) for k, v in result.items()}
 
 optimizer = AdamWeightDecay(learning_rate=2e-5, weight_decay_rate=0.01)
 
-model = TFAutoModelForCausalLM.from_pretrained("distilgpt2")
+model = TFAutoModelForSeq2SeqLM.from_pretrained("t5-small")
 
 tf_train_set = model.prepare_tf_dataset(
-    lm_dataset["train"],
+    tokenized["train"],
     shuffle=True,
     batch_size=16,
     collate_fn=data_collator,
 )
 
 tf_test_set = model.prepare_tf_dataset(
-    lm_dataset["test"],
+    tokenized["test"],
     shuffle=False,
     batch_size=16,
     collate_fn=data_collator,
 )
 
-model.compile(optimizer=optimizer, jit_compile=True)
+model.compile(optimizer=optimizer)
 
 eval_loss = model.evaluate(tf_test_set)
 print(f"Pretrained LM Perplexity: {math.exp(eval_loss):.2f}")
 
-model.fit(x=tf_train_set, validation_data=tf_test_set, epochs=10)
+metric_callback = KerasMetricCallback(metric_fn=compute_metrics, eval_dataset=tf_test_set)
+
+
+callbacks = [metric_callback]
+model.fit(x=tf_train_set, validation_data=tf_test_set, epochs=5)
 
 eval_loss = model.evaluate(tf_test_set)
 print(f"Finetuned Perplexity: {math.exp(eval_loss):.2f}")
 
-prompt = dataset['test']['news'][0]
-inputs = tokenizer(prompt, return_tensors="tf").input_ids
-outputs = model.generate(input_ids=inputs, max_new_tokens=100, do_sample=True, top_k=50, top_p=0.95)
+text = prefix + dataset['test']['news'][0]
+print(type(text))
+inputs = tokenizer(text, return_tensors="tf").input_ids
+outputs = model.generate(inputs, max_new_tokens=100, do_sample=False)
 
-print(tokenizer.batch_decode(outputs, skip_special_tokens=True))
+print(tokenizer.batch_decode(outputs[0], skip_special_tokens=True))
 
 print("News: ", dataset['test']['news'][0])
 print("Answer: ", dataset['test']['headline'][0])
