@@ -3,7 +3,6 @@ import tensorflow as tf
 from transformers import AutoTokenizer
 import re
 from transformers import AdamWeightDecay
-from transformers import TFAutoModelForCausalLM
 from datasets import Dataset
 import math
 from transformers import DataCollatorForSeq2Seq
@@ -22,9 +21,11 @@ df['news'] = df['news'].apply(lambda x: re.sub(r'\([^)]*\)', '', x))
 #print(df['text'].head())
 f.close()
 
+
 dataset = Dataset.from_pandas(df)
 dataset = dataset.train_test_split(test_size=0.2)
-
+for i in dataset['test']['headline']:
+    print(len(i.split( )))
 tokenizer = AutoTokenizer.from_pretrained("t5-small")
 
 prefix = "summarize: "
@@ -82,21 +83,35 @@ model.compile(optimizer=optimizer)
 eval_loss = model.evaluate(tf_test_set)
 print(f"Pretrained LM Perplexity: {math.exp(eval_loss):.2f}")
 
-metric_callback = KerasMetricCallback(metric_fn=compute_metrics, eval_dataset=tf_test_set)
+#metric_callback = KerasMetricCallback(metric_fn=compute_metrics, eval_dataset=tf_test_set)
 
-
-callbacks = [metric_callback]
 model.fit(x=tf_train_set, validation_data=tf_test_set, epochs=5)
 
 eval_loss = model.evaluate(tf_test_set)
 print(f"Finetuned Perplexity: {math.exp(eval_loss):.2f}")
-
-text = prefix + dataset['test']['news'][0]
-print(type(text))
-inputs = tokenizer(text, return_tensors="tf").input_ids
-outputs = model.generate(inputs, max_new_tokens=100, do_sample=False)
-
-print(tokenizer.batch_decode(outputs[0], skip_special_tokens=True))
-
-print("News: ", dataset['test']['news'][0])
-print("Answer: ", dataset['test']['headline'][0])
+'''
+for i in range(len(dataset['test'])):
+    text = prefix + dataset['test']['news'][i]
+    inputs = tokenizer(text, return_tensors="tf").input_ids
+    outputs = model.generate(inputs, max_new_tokens=len(dataset['test']['headline'][i]), do_sample=False)
+    predictions = " ".join(tokenizer.batch_decode(outputs[0], skip_special_tokens=True))
+    print()
+    print(len(dataset['test']['headline'][i]))
+    print(predictions)
+    #print("News: ", dataset['test']['news'][0])
+    answer = dataset['test']['headline'][i]
+    print("Answer: ", answer)
+    print(rouge.compute(predictions=[predictions], references=[answer]))
+'''
+for i in dataset['test']:
+    text = prefix + i['news']
+    inputs = tokenizer(text, return_tensors="tf").input_ids
+    outputs = model.generate(inputs, max_new_tokens=len(i['headline'].split( )), do_sample=False)
+    predictions = " ".join(tokenizer.batch_decode(outputs[0], skip_special_tokens=True)).strip()
+    print()
+    print(len(i['headline'].split( )))
+    print(predictions)
+    #print("News: ", dataset['test']['news'][0])
+    answer = i['headline']
+    print("Answer: ", answer)
+    print(rouge.compute(predictions=[predictions], references=[answer]))
