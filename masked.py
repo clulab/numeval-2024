@@ -23,8 +23,8 @@ f.close()
 dataset = Dataset.from_pandas(df)
 dataset = dataset.train_test_split(test_size=0.2)
 
-model_name = "distilroberta-base"
-#model_name = "distilbert-base-uncased"
+#model_name = "distilroberta-base"
+model_name = "distilbert-base-uncased"
 
 def preprocess_function(examples):
     #return tokenizer([" ".join(x) for x in examples['text']]) # not join
@@ -36,7 +36,7 @@ tokenized = dataset.map(preprocess_function, batched=True, num_proc=4,
 
 block_size = 128
 
-def group_texts(examples): #skipp
+def group_texts(examples): #skip
     # Concatenate all texts.
     concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
     total_length = len(concatenated_examples[list(examples.keys())[0]])
@@ -89,7 +89,7 @@ tf_test_set = model.prepare_tf_dataset(
     collate_fn=data_collator,
 )
 
-model.compile(optimizer=optimizer)  # No loss argument!
+model.compile(optimizer=optimizer)  
 
 eval_loss = model.evaluate(tf_test_set)
 print(f"Pretrained LM Perplexity: {math.exp(eval_loss):.2f}")
@@ -144,7 +144,8 @@ for i in range(len(dataset['test'])):
 '''
 for i in dataset['test']:
     inputs = tokenizer(i['text'], return_tensors="tf")
-    mask_token_index = tf.where(inputs["input_ids"] == tokenizer.mask_token_id)[0, 1]
+    #mask_token_index = tf.where(inputs["input_ids"] == tokenizer.mask_token_id)[0, 1]
+    mask_token_index = tf.where(inputs["input_ids"] == tokenizer.mask_token_id)[1]
     logits = model(**inputs).logits
     mask_token_logits = logits[0, mask_token_index, :]
     top_token = tf.math.top_k(mask_token_logits, 1).indices.numpy()
