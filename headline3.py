@@ -4,12 +4,9 @@ from transformers import AutoTokenizer
 import re
 from transformers import AdamWeightDecay
 from datasets import Dataset
-import math
-from transformers import T5ForConditionalGeneration
+import torch
+from transformers import T5ForConditionalGeneration,T5Tokenizer
 import evaluate
-import numpy as np
-from transformers import TFAutoModelForSeq2SeqLM
-from transformers.keras_callbacks import KerasMetricCallback
 
 # https://huggingface.co/JulesBelveze/t5-small-headline-generator
 
@@ -56,6 +53,47 @@ for i in dataset['test']:
     print(rouge.compute(predictions=[summary], references=[i['headline']], use_stemmer=True))
     print("")
 
+# https://huggingface.co/Michau/t5-base-en-generate-headline
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+model = T5ForConditionalGeneration.from_pretrained("Michau/t5-base-en-generate-headline")
+tokenizer = T5Tokenizer.from_pretrained("Michau/t5-base-en-generate-headline")
+model = model.to(device)
+
+max_len = 256
+
+prefix = "headline: "
+
+for i in dataset['test']:
+    text = prefix + i['news']
+    encoding = tokenizer.encode_plus(text, return_tensors = "pt")
+    input_ids = encoding["input_ids"].to(device)
+    attention_masks = encoding["attention_mask"].to(device)
+    beam_outputs = model.generate(input_ids = input_ids, attention_mask = attention_masks,
+    max_length = 64, num_beams = 3, early_stopping = True)
+    result = tokenizer.decode(beam_outputs[0])
+    print(result)
+    answer = i['headline']
+    print("Answer: ", answer)
+    print(rouge.compute(predictions=[result], references=[answer]))
+
+#https://huggingface.co/docs/transformers/model_doc/pegasus
+
+from transformers import PegasusForConditionalGeneration
+
+model = PegasusForConditionalGeneration.from_pretrained("google/pegasus-xsum")
+tokenizer = AutoTokenizer.from_pretrained("google/pegasus-xsum")
+
+for i in dataset['test']:
+    inputs = tokenizer(i['news'], max_length=3024, return_tensors="pt")
+    summary_ids = model.generate(inputs["input_ids"])
+    summary = tokenizer.batch_decode(summary_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+    print(summary)
+    print(i['headline'])
+    print(rouge.compute(predictions=[summary], references=[i['headline']], use_stemmer=True))
+    print("")
+    
 '''
 # https://huggingface.co/learn/nlp-course/chapter7/5?fw=pt
 tokenizer = AutoTokenizer.from_pretrained("google/mt5-small")
