@@ -22,13 +22,8 @@ df['headline'] = df['headline'].apply(lambda x: re.sub(r'[^\w\s]', '', x)) #Remo
 #print(df['text'].head())
 f.close()
 
-test_str = "I ate 8 apple's puncak!"
-res = re.sub(r'[^\w\s]', '', test_str)
-
-
 dataset = Dataset.from_pandas(df)
 dataset = dataset.train_test_split(test_size=0.2)
-
 
 #WHITESPACE_HANDLER = lambda k: re.sub('\s+', ' ', re.sub('\n+', ' ', k.strip()))
 
