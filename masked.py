@@ -13,7 +13,7 @@ import math
 f = open('DryRun_Numerical_Reasoning.json')
 df = pd.read_json(f)
 print(df.head())
-df['news'] = df['news'].apply(lambda x: re.sub(r'\([^)]*\)', '', x))
+df['news'] = df['news'].apply(lambda x: re.sub(r'\([^)]*\)', '', x)) #Remove Time stamps
 df['masked headline'] = df['masked headline'].str.replace('____', '<mask> ')
 df['text'] = df[['news', 'masked headline']].apply(" ".join, axis=1)
 print(df['text'].head())
@@ -89,7 +89,7 @@ tf_test_set = model.prepare_tf_dataset(
     collate_fn=data_collator,
 )
 
-model.compile(optimizer=optimizer)  
+model.compile(optimizer=optimizer)
 
 eval_loss = model.evaluate(tf_test_set)
 print(f"Pretrained LM Perplexity: {math.exp(eval_loss):.2f}")

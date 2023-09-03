@@ -21,6 +21,7 @@ print(df.head())
 
 f.close()
 
+''' SHOULD I COMBINED NEWS AND HEALDLINE TO TRAIN A MODEL" '''
 df['news'] = df['news'].apply(lambda x: re.sub(r'\([^)]*\)', '', x))
 df['text'] = df[['news', 'headline']].apply(" ".join, axis=1)
 print(df['text'].head())
@@ -59,7 +60,7 @@ def format_data(data, max_features, maxlen, shuffle=False):
 max_features, max_len = 3500, 20
 X, Y, tokenizer = format_data(df, max_features, max_len)
 
-epochs = 50
+epochs = 30
 
 model = Sequential()
 
