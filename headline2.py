@@ -11,31 +11,34 @@ import numpy as np
 from transformers import TFAutoModelForSeq2SeqLM
 from transformers.keras_callbacks import KerasMetricCallback
 
+# https://huggingface.co/docs/transformers/tasks/summarization
+# https://huggingface.co/learn/nlp-course/chapter7/5?fw=pt
 
 
 f = open('DryRun_Headline_Generation.json')
 df = pd.read_json(f)
 print(df.info())
-df['news'] = df['news'].apply(lambda x: re.sub(r'\([^)]*\)', '', x))
+df['news'] = df['news'].apply(lambda x: re.sub(r'\([^)]*\)', '', x)) #Remove Time stamps
 #df['text'] = df[['news', 'headline']].apply(" ".join, axis=1)
 #print(df['text'].head())
 f.close()
 
+model_names = ["t5-small", "t5-base", "t5-large", "t5-3b", "t5-11b"]
 
 dataset = Dataset.from_pandas(df)
 dataset = dataset.train_test_split(test_size=0.2)
 for i in dataset['test']['headline']:
-    print(len(i.split( )))
-tokenizer = AutoTokenizer.from_pretrained("t5-small")
+    print(i)
+tokenizer = AutoTokenizer.from_pretrained(model_names[1])
 
 prefix = "summarize: "
 
 
 def preprocess_function(examples):
     inputs = [prefix + doc for doc in examples["news"]]
-    model_inputs = tokenizer(inputs, max_length=2024, truncation=True)
+    model_inputs = tokenizer(inputs, max_length=3024, truncation=True)
 
-    labels = tokenizer(text_target=examples["headline"], max_length=128, truncation=True)
+    labels = tokenizer(text_target=examples["headline"], max_length=1028, truncation=True)
 
     model_inputs["labels"] = labels["input_ids"]
     return model_inputs
@@ -43,7 +46,7 @@ def preprocess_function(examples):
 tokenized = dataset.map(preprocess_function, batched=True)
 print(tokenized["train"][1])
 
-data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model="t5-small", return_tensors="tf")
+data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model_names[1], return_tensors="tf")
 
 rouge = evaluate.load("rouge")
 
@@ -62,7 +65,7 @@ def compute_metrics(eval_pred):
 
 optimizer = AdamWeightDecay(learning_rate=2e-5, weight_decay_rate=0.01)
 
-model = TFAutoModelForSeq2SeqLM.from_pretrained("t5-small")
+model = TFAutoModelForSeq2SeqLM.from_pretrained(model_names[1])
 
 tf_train_set = model.prepare_tf_dataset(
     tokenized["train"],
@@ -106,7 +109,7 @@ for i in range(len(dataset['test'])):
 for i in dataset['test']:
     text = prefix + i['news']
     inputs = tokenizer(text, return_tensors="tf").input_ids
-    outputs = model.generate(inputs, max_new_tokens=len(i['headline'].split( )), do_sample=False)
+    outputs = model.generate(inputs, max_new_tokens=len(i['headline'].split( ))+3, do_sample=False)
     predictions = " ".join(tokenizer.batch_decode(outputs[0], skip_special_tokens=True)).strip()
     print()
     print(len(i['headline'].split( )))
