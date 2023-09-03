@@ -65,6 +65,7 @@ max_len = 256
 
 prefix = "headline: "
 
+
 for i in dataset['test']:
     text = prefix + i['news']
     encoding = tokenizer.encode_plus(text, return_tensors = "pt")
@@ -73,10 +74,12 @@ for i in dataset['test']:
     beam_outputs = model.generate(input_ids = input_ids, attention_mask = attention_masks,
     max_length = 64, num_beams = 3, early_stopping = True)
     result = tokenizer.decode(beam_outputs[0])
+    result = re.sub("\<.*?\>","", result)
     print(result)
     answer = i['headline']
     print("Answer: ", answer)
     print(rouge.compute(predictions=[result], references=[answer]))
+    print("")
 
 #https://huggingface.co/docs/transformers/model_doc/pegasus
 
@@ -93,7 +96,7 @@ for i in dataset['test']:
     print(i['headline'])
     print(rouge.compute(predictions=[summary], references=[i['headline']], use_stemmer=True))
     print("")
-    
+
 '''
 # https://huggingface.co/learn/nlp-course/chapter7/5?fw=pt
 tokenizer = AutoTokenizer.from_pretrained("google/mt5-small")
