@@ -29,4 +29,4 @@ Models are required to generate an entire headline based on the provided news.
 * T5-base by Michal Pleban: sub2_michal.ipynb 
 * T5 by Caleb Zearing: sub2_cz.ipynb
 
-[embed]file:///home/hinoki/Downloads/Poster.pdf[/embed]
+
