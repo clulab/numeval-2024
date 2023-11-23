@@ -19,8 +19,7 @@ Step 2: calculations as inputs and answers (numbers) as outputs.
 
 * T5-base by Michal Pleban: sub1_michau_2steps.ipynb - 87.9% accuracy
 * T5 by Caleb Zearing: sub1_cz_2steps.ipynb - 88.1% accuracy
-* LaMini-Flan-T5-783M: sub1_lamini_step1.ipynb for step 1
-                       sub1_lamini_step2.ipynb for step 2 - 89.9% accuracy
+* LaMini-Flan-T5-783M: sub1_lamini_step1.ipynb for step 1 & sub1_lamini_step2.ipynb for step 2 - 89.9% accuracy
 
 ## Subtask 2: 
 
@@ -28,6 +27,7 @@ Models are required to generate an entire headline based on the provided news.
 
 * T5-base by Michal Pleban: sub2_michal.ipynb 
 * T5 by Caleb Zearing: sub2_cz.ipynb
+
 
 
 ![poster](https://github.com/clulab/numeval-2024/assets/101580620/416360d8-8a4f-49e0-a45d-64cc1e56fa9b)
