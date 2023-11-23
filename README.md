@@ -19,8 +19,7 @@ Step 2: calculations as inputs and answers (numbers) as outputs.
 
 * T5-base by Michal Pleban: sub1_michau_2steps.ipynb - 87.9% accuracy
 * T5 by Caleb Zearing: sub1_cz_2steps.ipynb - 88.1% accuracy
-* LaMini-Flan-T5-783M: sub1_lamini_step1.ipynb for step 1
-                       sub1_lamini_step2.ipynb for step 2 - 89.9% accuracy
+* LaMini-Flan-T5-783M: sub1_lamini_step1.ipynb for step 1 & sub1_lamini_step2.ipynb for step 2 - 89.9% accuracy
 
 ## Subtask 2: 
 
