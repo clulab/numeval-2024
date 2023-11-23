@@ -30,3 +30,4 @@ Models are required to generate an entire headline based on the provided news.
 * T5 by Caleb Zearing: sub2_cz.ipynb
 
 
+![poster](https://github.com/clulab/numeval-2024/assets/101580620/416360d8-8a4f-49e0-a45d-64cc1e56fa9b)
