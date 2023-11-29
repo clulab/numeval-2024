@@ -31,4 +31,5 @@ Models are required to generate an entire headline based on the provided news.
 * T5 by Caleb Zearing: sub2_cz.ipynb (sub2_cz.xlsx: headlines generated)
 
 Check out the Poster for this project:
-[Poster.pdf](https://github.com/clulab/numeval-2024/files/13503305/Poster.pdf)
+[Poster.pdf](https://github.com/clulab/numeval-2024/files/13503441/Poster.pdf)
+
