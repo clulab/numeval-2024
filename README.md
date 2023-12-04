@@ -1,5 +1,5 @@
 # SemEval-2024 Task 7: NumEval Task 3: Numeral-Aware Headline Generation (English)
-[](https://sites.google.com/view/numeval/numeval)
+[Link to NumEval](https://sites.google.com/view/numeval/numeval)
 
 This task consists of two subtasks:
 
